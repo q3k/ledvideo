@@ -25,7 +25,7 @@ module blitter #(
     // Width of one display
     parameter integer C_LED_WIDTH = 32,
     // Clock divider from system clock to LED blit clock
-    parameter integer C_LED_CLKDIV = 8,
+    parameter integer C_LED_CLKDIV = 16,
     // Bits per pixel colour
     parameter integer C_BPC = 12
 )
@@ -43,7 +43,7 @@ module blitter #(
     
     output reg led_clk,
     output reg led_stb,
-    output led_oe,
+    output reg led_oe,
     output [$clog2(C_LED_NBANKS)-1 : 0] led_bank,
     
     output [$clog2(C_LED_WIDTH * C_LED_CHAIN_LENGTH)-1 : 0] ctl_cur_x,
@@ -88,7 +88,7 @@ wire last_subframe = (subframe_counter >= C_BPC - 1);
 reg [2:0] line_fsm_state;
 wire line_fsm_start;
 reg line_fsm_busy;
-assign led_oe = line_fsm_busy;
+
 always @(posedge sys_clk or negedge sys_rst)
 begin
     if (~sys_rst) begin
@@ -162,7 +162,7 @@ begin
                     divider_counter <= divider_counter - 1;
                 end
                 
-                if (divider_counter < (C_LED_CLKDIV / 2))
+                if (divider_counter < ((C_LED_CLKDIV >> 1) + (C_LED_CLKDIV >> 2)))
                     led_stb <= 0;
                 else
                     led_stb <= 1;
@@ -211,16 +211,17 @@ begin
     end else begin
         case (subframe_fsm_state)
             `SUBFRAME_IDLE: begin
+                led_oe <= 1;
                 if (!line_fsm_busy) begin
                     subframe_line_start <= 1;
-                    if (subframe_counter == 0 && bank_counter == 0) begin
+                    //if (subframe_counter == 0 && bank_counter == 0) begin
                         // we're running the first, smallest subframe interval - start calibration
-                        subframe_fsm_state <= `SUBFRAME_CALIBRATE;
-                        subframe_delay <= 0;
-                    end else begin
+                    //    subframe_fsm_state <= `SUBFRAME_CALIBRATE;
+                    //    subframe_delay <= 0;
+                    //end else begin
                         subframe_fsm_state <= `SUBFRAME_WAIT;
-                        subframe_delay <= (subframe_calibration_delay << subframe_counter); 
-                    end
+                        subframe_delay <= (8 << subframe_counter); 
+                    //end
                 end else begin
                 end
             end
@@ -231,7 +232,8 @@ begin
             end
             `SUBFRAME_CALIBRATE2: begin
                 if (!line_fsm_busy) begin
-                    subframe_calibration_delay <= (subframe_calibration_delay >> 4);
+                    //subframe_calibration_delay <= (subframe_calibration_delay >> 8);
+                    subframe_calibration_delay <= 1;
                     subframe_delay <= ((subframe_calibration_delay>>1) << subframe_counter);
                     subframe_fsm_state <= `SUBFRAME_WAIT2;
                 end else begin
@@ -244,29 +246,33 @@ begin
             end
             `SUBFRAME_WAIT2: begin
                 if (!line_fsm_busy) begin
+                    led_oe <= 0;
                     if (subframe_delay == 0) begin
                         
                         
-                        if (last_line) begin
-                            bank_counter <= 0;
-                            if (last_subframe) begin
-                                subframe_counter <= 0;
+                        if (last_subframe) begin
+                            subframe_counter <= 0;
+                            if (last_line) begin
+                                bank_counter <= 0;
                                 subframe_fsm_state <= `SUBFRAME_VSYNC1;
                                 subframe_delay = 10;
                             end else begin
-                                subframe_counter <= subframe_counter + 1;
+                                bank_counter <= bank_counter + 1;
                                 subframe_fsm_state <= `SUBFRAME_IDLE;
                             end
                         end else begin
+                            subframe_counter <= subframe_counter + 1;
                             subframe_fsm_state <= `SUBFRAME_IDLE;
-                            bank_counter <= bank_counter + 1;
                         end
                     end else begin
                         subframe_delay <= subframe_delay - 1;
                     end
+                end else begin
+                    led_oe <= 1;
                 end
             end
             `SUBFRAME_VSYNC1: begin
+                led_oe <= 1;
                 vsync <= 1;
                 if (subframe_delay == 0) begin
                     subframe_fsm_state <= `SUBFRAME_VSYNC2;
