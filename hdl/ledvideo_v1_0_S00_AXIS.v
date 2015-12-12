@@ -126,15 +126,20 @@
 	          begin
 	            // write pointer is incremented after every write to the FIFO
 	            // when FIFO write signal is enabled.
-	            write_pointer <= write_pointer + 1;
+	            //write_pointer <= write_pointer + 1;
 	            writes_done <= 1'b0;
 	          end
 	          if ((write_pointer == NUMBER_OF_INPUT_WORDS-1)|| S_AXIS_TLAST)
 	            begin
 	              // reads_done is asserted when NUMBER_OF_INPUT_WORDS numbers of streaming data 
 	              // has been written to the FIFO which is also marked by S_AXIS_TLAST(kept for optional usage).
-	              writes_done <= 1'b1;
+	              //writes_done <= 1'b1;
+                  write_pointer <= 0;
 	            end
+                else
+                begin
+                  write_pointer <= write_pointer + 1;
+                end
 	      end  
 	end
 

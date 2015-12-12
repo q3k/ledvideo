@@ -21,30 +21,9 @@ module ledvideo_v1_0 #
     output wire LED_STB,
     output wire LED_OE,
     output wire [3:0] LED_BANK,
-    output wire LED_R00,
-    output wire LED_R01,
-    output wire LED_G00,
-    output wire LED_G01,
-    output wire LED_B00,
-    output wire LED_B01,
-    output wire LED_R10,
-    output wire LED_R11,
-    output wire LED_G10,
-    output wire LED_G11,
-    output wire LED_B10,
-    output wire LED_B11,
-    output wire LED_R20,
-    output wire LED_R21,
-    output wire LED_G20,
-    output wire LED_G21,
-    output wire LED_B20,
-    output wire LED_B21,
-    output wire LED_R30,
-    output wire LED_R31,
-    output wire LED_G30,
-    output wire LED_G31,
-    output wire LED_B30,
-    output wire LED_B31,
+    output wire [7:0] LED_R,
+    output wire [7:0] LED_G,
+    output wire [7:0] LED_B,
     // User ports ends
     // Do not modify the ports beyond this line
 
@@ -160,6 +139,10 @@ generate
             .in(reader_data_b[i]),
             .out(gamma_b[i])
         );
+
+        assign LED_R[i] = gamma_r[i] >> draw_bit;
+        assign LED_G[i] = gamma_g[i] >> draw_bit;
+        assign LED_B[i] = gamma_b[i] >> draw_bit;
     end
 endgenerate
 
@@ -198,30 +181,5 @@ timing_generator tg (
     .ctl_cur_bit(draw_bit),
     .ctl_vsync(draw_vsync)
 );
-
-assign LED_R00 = gamma_r[0] >> draw_bit;
-assign LED_G00 = gamma_g[0] >> draw_bit;
-assign LED_B00 = gamma_b[0] >> draw_bit;
-assign LED_R01 = gamma_r[1] >> draw_bit;
-assign LED_G01 = gamma_g[1] >> draw_bit;
-assign LED_B01 = gamma_b[1] >> draw_bit;
-assign LED_R10 = gamma_r[2] >> draw_bit;
-assign LED_G10 = gamma_g[2] >> draw_bit;
-assign LED_B10 = gamma_b[2] >> draw_bit;
-assign LED_R11 = gamma_r[3] >> draw_bit;
-assign LED_G11 = gamma_g[3] >> draw_bit;
-assign LED_B11 = gamma_b[3] >> draw_bit;
-assign LED_R20 = gamma_r[4] >> draw_bit;
-assign LED_G20 = gamma_g[4] >> draw_bit;
-assign LED_B20 = gamma_b[4] >> draw_bit;
-assign LED_R21 = gamma_r[5] >> draw_bit;
-assign LED_G21 = gamma_g[5] >> draw_bit;
-assign LED_B21 = gamma_b[5] >> draw_bit;
-assign LED_R30 = gamma_r[6] >> draw_bit;
-assign LED_G30 = gamma_g[6] >> draw_bit;
-assign LED_B30 = gamma_b[6] >> draw_bit;
-assign LED_R31 = gamma_r[7] >> draw_bit;
-assign LED_G31 = gamma_g[7] >> draw_bit;
-assign LED_B31 = gamma_b[7] >> draw_bit;
 
 endmodule
