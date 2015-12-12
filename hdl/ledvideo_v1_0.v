@@ -21,12 +21,30 @@ module ledvideo_v1_0 #
     output wire LED_STB,
     output wire LED_OE,
     output wire [3:0] LED_BANK,
-    output wire LED_R0,
-    output wire LED_R1,
-    output wire LED_G0,
-    output wire LED_G1,
-    output wire LED_B0,
-    output wire LED_B1,
+    output wire LED_R00,
+    output wire LED_R01,
+    output wire LED_G00,
+    output wire LED_G01,
+    output wire LED_B00,
+    output wire LED_B01,
+    output wire LED_R10,
+    output wire LED_R11,
+    output wire LED_G10,
+    output wire LED_G11,
+    output wire LED_B10,
+    output wire LED_B11,
+    output wire LED_R20,
+    output wire LED_R21,
+    output wire LED_G20,
+    output wire LED_G21,
+    output wire LED_B20,
+    output wire LED_B21,
+    output wire LED_R30,
+    output wire LED_R31,
+    output wire LED_G30,
+    output wire LED_G31,
+    output wire LED_B30,
+    output wire LED_B31,
     // User ports ends
     // Do not modify the ports beyond this line
 
@@ -63,12 +81,13 @@ wire [6:0] writer_x = writer_pixel[6:0];
 
 //wire [7:0] writer_b = writer_x ^ writer_y;
 wire [7:0] writer_b = writer_x << 1;
-wire [7:0] writer_r = writer_y << 3;
+wire [7:0] writer_r = writer_y << 1;
 wire [7:0] writer_g = 0;
     
-// Get current writing address, iterating across registers 0 and 1
-wire writing_0 = !writer_y[4];
-wire [12:0] current_writer_address = ((((writer_y >> 5) << 4) | (writer_y & 4'b1111) ) << 7) + writer_x;
+// Current writing address decoder
+wire [2:0] write_block = writer_y >> 4;
+wire [3:0] write_line = writer_y & 4'b1111;
+wire [10:0] write_address = (write_line << 7 ) | writer_x;
 
 // Data draw from framebuffer
 wire [6:0] draw_x;
@@ -76,69 +95,48 @@ wire [3:0] draw_y;
 wire [3:0] draw_bit;
 wire draw_vsync;
     
-// Block RAM access lines
-wire [15:0] current_reader_address_0 = ((draw_y) << 7) + draw_x;
-wire [15:0] current_reader_address_1 = ((draw_y) << 7) + draw_x;
-wire [23:0] current_reader_data_a_0;
-wire [23:0] current_reader_data_a_1;
-wire [23:0] current_reader_data_b_0;
-wire [23:0] current_reader_data_b_1;
-wire frame_a_0_wen = (write_frame_sel == 0) && writing_0;
-wire frame_a_1_wen = (write_frame_sel == 0) && !writing_0;
-wire frame_b_0_wen = (write_frame_sel == 1) && writing_0;
-wire frame_b_1_wen = (write_frame_sel == 1) && !writing_0;
+wire [15:0] current_reader_address = ((draw_y) << 7) + draw_x;
 wire [23:0] dina = (writer_r << 16) | (writer_g << 8) | writer_b;
+
+// Block RAM access lines
+wire [7:0] frame_a_wen;
+wire [7:0] frame_b_wen;
+wire [23:0] reader_data [7:0];
+wire [23:0] reader_data_a [7:0];
+wire [23:0] reader_data_b [7:0];
 wire frame_a_en = (write_frame_sel == 1);
 wire frame_b_en = (write_frame_sel == 0);
-wire [23:0] current_reader_data_0 = frame_a_en ? current_reader_data_a_0 : current_reader_data_b_0;
-wire [23:0] current_reader_data_1 = frame_a_en ? current_reader_data_a_1 : current_reader_data_b_1; 
 
-// Framebuffer block RAM
-bram frame_a_0(
-    .clka(core_clk),
+genvar i;
+generate for (i = 0; i < 8; i++) begin
+    assign frame_a_wen[i] = (write_frame_sel == 0) && write_block == i;
+    assign frame_b_wen[i] = (write_frame_sel == 1) && write_block == i;
+    assign reader_data[i] = frame_a_en ? reader_data_a[i] : reader_data_b[i];
+    bram #(
+        .RAM_DEPTH(2048))
+    ) ram_a (
+        .clka(core_clk),
+        .addra(write_address),
+        .wea(frame_a_wen[i]),
+        .dina(dina),
+        .addrb(current_reader_address),
+        .enb(frame_a_en),
+        .doutb(reader_data_a[i])
+    );
+    bram #(
+        .RAM_DEPTH(2048))
+    ) ram_b (
+        .clka(core_clk),
+        .addra(write_address),
+        .wea(frame_b_wen[i]),
+        .dina(dina),
+        .addrb(current_reader_address),
+        .enb(frame_b_en),
+        .doutb(reader_data_b[i])
+    );
+end
 
-    .addra(current_writer_address),
-    .wea(frame_a_0_wen),
-    .dina(dina),
-    
-    .addrb(current_reader_address_0),
-    .enb(frame_a_en),
-    .doutb(current_reader_data_a_0)
-);
-bram frame_a_1(
-    .clka(core_clk),
-
-    .addra(current_writer_address),
-    .wea(frame_a_1_wen),
-    .dina(dina),
-    
-    .addrb(current_reader_address_1),
-    .enb(frame_a_en),
-    .doutb(current_reader_data_a_1)
-);
-bram frame_b_0(
-    .clka(core_clk),
-
-    .addra(current_writer_address),
-    .wea(frame_b_0_wen),
-    .dina(dina),
-    
-    .addrb(current_reader_address_0),
-    .enb(frame_b_en),
-    .doutb(current_reader_data_b_0)
-);
-bram frame_b_1(
-    .clka(core_clk),
-
-    .addra(current_writer_address),
-    .wea(frame_b_1_wen),
-    .dina(dina),
-    
-    .addrb(current_reader_address_1),
-    .enb(frame_b_en),
-    .doutb(current_reader_data_b_1)
-);   
-    
+   
 reg [1:0] vsync_twostep;
 always @(posedge core_clk) begin
    vsync_twostep <= {vsync_twostep[0], draw_vsync};
@@ -174,50 +172,122 @@ blitter bt (
     .ctl_vsync(draw_vsync)
 );
 
-wire [7:0] reader_data_r0 = current_reader_data_0[23:16];
-wire [7:0] reader_data_g0 = current_reader_data_0[15:8];
-wire [7:0] reader_data_b0 = current_reader_data_0[7:0];
-wire [7:0] reader_data_r1 = current_reader_data_1[23:16];
-wire [7:0] reader_data_g1 = current_reader_data_1[15:8];
-wire [7:0] reader_data_b1 = current_reader_data_1[7:0];
+wire [7:0] reader_data_r00 = current_reader_data_0[23:16];
+wire [7:0] reader_data_g00 = current_reader_data_0[15:8];
+wire [7:0] reader_data_b00 = current_reader_data_0[7:0];
+wire [7:0] reader_data_r01 = current_reader_data_1[23:16];
+wire [7:0] reader_data_g01 = current_reader_data_1[15:8];
+wire [7:0] reader_data_b01 = current_reader_data_1[7:0];
+wire [7:0] reader_data_r10 = current_reader_data_2[23:16];
+wire [7:0] reader_data_g10 = current_reader_data_2[15:8];
+wire [7:0] reader_data_b10 = current_reader_data_2[7:0];
+wire [7:0] reader_data_r11 = current_reader_data_3[23:16];
+wire [7:0] reader_data_g11 = current_reader_data_3[15:8];
+wire [7:0] reader_data_b11 = current_reader_data_3[7:0];
+wire [7:0] reader_data_r20 = current_reader_data_4[23:16];
+wire [7:0] reader_data_g20 = current_reader_data_4[15:8];
+wire [7:0] reader_data_b20 = current_reader_data_4[7:0];
+wire [7:0] reader_data_r21 = current_reader_data_5[23:16];
+wire [7:0] reader_data_g21 = current_reader_data_5[15:8];
+wire [7:0] reader_data_b21 = current_reader_data_5[7:0];
+wire [7:0] reader_data_r30 = current_reader_data_6[23:16];
+wire [7:0] reader_data_g30 = current_reader_data_6[15:8];
+wire [7:0] reader_data_b30 = current_reader_data_6[7:0];
+wire [7:0] reader_data_r31 = current_reader_data_7[23:16];
+wire [7:0] reader_data_g31 = current_reader_data_7[15:8];
+wire [7:0] reader_data_b31 = current_reader_data_7[7:0];
 
-wire [11:0] reader_gamma_r0;
-wire [11:0] reader_gamma_g0;
-wire [11:0] reader_gamma_b0;
-wire [11:0] reader_gamma_r1;
-wire [11:0] reader_gamma_g1;
-wire [11:0] reader_gamma_b1;
+wire [11:0] reader_gamma_r00;
+wire [11:0] reader_gamma_g00;
+wire [11:0] reader_gamma_b00;
+wire [11:0] reader_gamma_r01;
+wire [11:0] reader_gamma_g01;
+wire [11:0] reader_gamma_b01;
+wire [11:0] reader_gamma_r10;
+wire [11:0] reader_gamma_g10;
+wire [11:0] reader_gamma_b10;
+wire [11:0] reader_gamma_r11;
+wire [11:0] reader_gamma_g11;
+wire [11:0] reader_gamma_b11;
+wire [11:0] reader_gamma_r20;
+wire [11:0] reader_gamma_g20;
+wire [11:0] reader_gamma_b20;
+wire [11:0] reader_gamma_r21;
+wire [11:0] reader_gamma_g21;
+wire [11:0] reader_gamma_b21;
+wire [11:0] reader_gamma_r30;
+wire [11:0] reader_gamma_g30;
+wire [11:0] reader_gamma_b30;
+wire [11:0] reader_gamma_r31;
+wire [11:0] reader_gamma_g31;
+wire [11:0] reader_gamma_b31;
 
-gamma gr0(
-    .in(reader_data_r0),
-    .out(reader_gamma_r0)
-);
-gamma gg0(
-    .in(reader_data_g0),
-    .out(reader_gamma_g0)
-);
-gamma gb0(
-    .in(reader_data_b0),
-    .out(reader_gamma_b0)
-);
-gamma gr1(
-    .in(reader_data_r1),
-    .out(reader_gamma_r1)
-);
-gamma gg1(
-    .in(reader_data_g1),
-    .out(reader_gamma_g1)
-);
-gamma gb1(
-    .in(reader_data_b1),
-    .out(reader_gamma_b1)
-);
+gamma gr00(.in(reader_data_r00), .out(reader_gamma_r00));
+gamma gg00(.in(reader_data_g00), .out(reader_gamma_g00));
+gamma gb00(.in(reader_data_b00), .out(reader_gamma_b00));
+gamma gr01(.in(reader_data_r01), .out(reader_gamma_r01));
+gamma gg01(.in(reader_data_g01), .out(reader_gamma_g01));
+gamma gb01(.in(reader_data_b01), .out(reader_gamma_b01));
+gamma gr10(.in(reader_data_r10), .out(reader_gamma_r10));
+gamma gg10(.in(reader_data_g10), .out(reader_gamma_g10));
+gamma gb10(.in(reader_data_b10), .out(reader_gamma_b10));
+gamma gr11(.in(reader_data_r11), .out(reader_gamma_r11));
+gamma gg11(.in(reader_data_g11), .out(reader_gamma_g11));
+gamma gb11(.in(reader_data_b11), .out(reader_gamma_b11));
+gamma gr20(.in(reader_data_r20), .out(reader_gamma_r20));
+gamma gg20(.in(reader_data_g20), .out(reader_gamma_g20));
+gamma gb20(.in(reader_data_b20), .out(reader_gamma_b20));
+gamma gr21(.in(reader_data_r21), .out(reader_gamma_r21));
+gamma gg21(.in(reader_data_g21), .out(reader_gamma_g21));
+gamma gb21(.in(reader_data_b21), .out(reader_gamma_b21));
+gamma gr30(.in(reader_data_r30), .out(reader_gamma_r30));
+gamma gg30(.in(reader_data_g30), .out(reader_gamma_g30));
+gamma gb30(.in(reader_data_b30), .out(reader_gamma_b30));
+gamma gr31(.in(reader_data_r31), .out(reader_gamma_r31));
+gamma gg31(.in(reader_data_g31), .out(reader_gamma_g31));
+gamma gb31(.in(reader_data_b31), .out(reader_gamma_b31));
 
-assign LED_R0 = reader_gamma_r0 >> draw_bit;
-assign LED_G0 = reader_gamma_g0 >> draw_bit;
-assign LED_B0 = reader_gamma_b0 >> draw_bit;
-assign LED_R1 = reader_gamma_r1 >> draw_bit;
-assign LED_G1 = reader_gamma_g1 >> draw_bit;
-assign LED_B1 = reader_gamma_b1 >> draw_bit;
+assign LED_R00 = reader_gamma_r00 >> draw_bit;
+assign LED_G00 = reader_gamma_g00 >> draw_bit;
+assign LED_B00 = reader_gamma_b00 >> draw_bit;
+assign LED_R01 = reader_gamma_r01 >> draw_bit;
+assign LED_G01 = reader_gamma_g01 >> draw_bit;
+assign LED_B01 = reader_gamma_b01 >> draw_bit;
+assign LED_R10 = reader_gamma_r00 >> draw_bit;
+assign LED_G10 = reader_gamma_g00 >> draw_bit;
+assign LED_B10 = reader_gamma_b00 >> draw_bit;
+assign LED_R11 = reader_gamma_r01 >> draw_bit;
+assign LED_G11 = reader_gamma_g01 >> draw_bit;
+assign LED_B11 = reader_gamma_b01 >> draw_bit;
+assign LED_R20 = reader_gamma_r00 >> draw_bit;
+assign LED_G20 = reader_gamma_g00 >> draw_bit;
+assign LED_B20 = reader_gamma_b00 >> draw_bit;
+assign LED_R21 = reader_gamma_r01 >> draw_bit;
+assign LED_G21 = reader_gamma_g01 >> draw_bit;
+assign LED_B21 = reader_gamma_b01 >> draw_bit;
+assign LED_R30 = reader_gamma_r00 >> draw_bit;
+assign LED_G30 = reader_gamma_g00 >> draw_bit;
+assign LED_B30 = reader_gamma_b00 >> draw_bit;
+assign LED_R31 = reader_gamma_r01 >> draw_bit;
+assign LED_G31 = reader_gamma_g01 >> draw_bit;
+assign LED_B31 = reader_gamma_b01 >> draw_bit;
+//assign LED_R10 = reader_gamma_r10 >> draw_bit;
+//assign LED_G10 = reader_gamma_g10 >> draw_bit;
+//assign LED_B10 = reader_gamma_b10 >> draw_bit;
+//assign LED_R11 = reader_gamma_r11 >> draw_bit;
+//assign LED_G11 = reader_gamma_g11 >> draw_bit;
+//assign LED_B11 = reader_gamma_b11 >> draw_bit;
+//assign LED_R20 = reader_gamma_r20 >> draw_bit;
+//assign LED_G20 = reader_gamma_g20 >> draw_bit;
+//assign LED_B20 = reader_gamma_b20 >> draw_bit;
+//assign LED_R21 = reader_gamma_r21 >> draw_bit;
+//assign LED_G21 = reader_gamma_g21 >> draw_bit;
+//assign LED_B21 = reader_gamma_b21 >> draw_bit;
+//assign LED_R30 = reader_gamma_r30 >> draw_bit;
+//assign LED_G30 = reader_gamma_g30 >> draw_bit;
+//assign LED_B30 = reader_gamma_b30 >> draw_bit;
+//assign LED_R31 = reader_gamma_r31 >> draw_bit;
+//assign LED_G31 = reader_gamma_g31 >> draw_bit;
+//assign LED_B31 = reader_gamma_b31 >> draw_bit;
 
 endmodule
