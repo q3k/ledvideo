@@ -5,7 +5,7 @@
 // 
 // Create Date: 11/10/2015 10:42:10 PM
 // Design Name: 
-// Module Name: blitter
+// Module Name: timing_generator
 // Project Name: LED Controller for GRAET JUSTICE
 // Target Devices: MYiR ZTurn Board with Zynq-7010
 // Tool Versions: 
@@ -15,7 +15,7 @@
 // 
 // 
 //////////////////////////////////////////////////////////////////////////////////
-module blitter #(
+module timing_generator #(
     // Number of display chains
     parameter integer C_LED_CHAINS = 4,
     // Maximum length of display chain

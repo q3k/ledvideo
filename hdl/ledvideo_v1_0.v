@@ -183,7 +183,7 @@ always @(posedge core_clk or negedge core_nrst) begin
 end
 
 wire sys_en = 1;
-blitter bt (
+timing_generator tg (
     .sys_en(sys_en),
     .sys_clk(core_clk),
     .sys_rst(!core_rst),
