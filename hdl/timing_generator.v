@@ -16,8 +16,6 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 module timing_generator #(
-    // Number of display chains
-    parameter integer C_LED_CHAINS = 4,
     // Maximum length of display chain
     parameter integer C_LED_CHAIN_LENGTH = 4,
     // Number of banks in one chain
@@ -25,7 +23,7 @@ module timing_generator #(
     // Width of one display
     parameter integer C_LED_WIDTH = 32,
     // Clock divider from system clock to LED blit clock
-    parameter integer C_LED_CLKDIV = 16,
+    parameter integer C_LED_CLKDIV = 32,
     // Bits per pixel colour
     parameter integer C_BPC = 12
 )
